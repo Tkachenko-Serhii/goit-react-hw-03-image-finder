@@ -1,7 +1,7 @@
 import { Component } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-// import getImagesData from "./Api";
+import fetchImages from "./Api";
 import Searchbar from "./components/Searchbar";
 import ImageGallery from "./components/ImageGallery";
 import Button from "./components/Button";
@@ -20,45 +20,43 @@ export default class App extends Component {
     searchValue: "",
   };
 
-  componentDidUpdate(prevProps, prevState) {
+  async componentDidUpdate(prevProps, prevState) {
     const { searchValue, page } = this.state;
-    if (prevState.searchValue !== searchValue || prevState.page !== page) {
-      this.setState({ status: "pending" });
-      fetch(
-        `https://pixabay.com/api/?q=${searchValue}&page=${page}&key=23056173-38182a6d52ebc31115cd52ab2&image_type=photo&orientation=horizontal&per_page=12`
-      )
-        .then((response) => {
-          if (response.ok) {
-            return response.json();
-          }
 
-          return Promise.reject(
-            new Error(
-              "No images for you request, please enter more specific query"
-            )
+    if (prevState.searchValue !== searchValue || prevState.page !== page) {
+      try {
+        this.setState({ status: "pending" });
+        const images = await fetchImages(searchValue, page);
+
+        if (images.length === 0) {
+          return toast.error(
+            "No images for you request, please enter more specific query"
           );
-        })
-        .then((images) => {
-          this.setState({
-            images: images.hits,
-            status: "resolved",
+        }
+
+        this.setState((prevState) => ({
+          images: [...prevState.images, ...images],
+          status: "resolved",
+        }));
+
+        if (this.state.page > 1) {
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: "smooth",
           });
-        })
-        .catch((error) => this.setState({ error, status: "rejected" }));
-    }
-    if (page > 1) {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: "smooth",
-      });
+        }
+      } catch (error) {
+        this.setState({ error, status: "rejected" });
+      }
     }
   }
 
   handleFormSubmit = (searchValue) => {
     if (this.state.searchValue !== searchValue) {
-      this.setState({ searchValue });
+      this.setState({ searchValue, images: [], page: 1 });
     }
   };
+
   toggleModal = (largeImageURL) => {
     this.setState(({ showModal }) => ({
       showModal: !showModal,
@@ -72,26 +70,35 @@ export default class App extends Component {
 
   loadMore = () => {
     this.setState((prevState) => ({
-      images: [...prevState.images],
       page: prevState.page + 1,
     }));
-    this.handleFormSubmit(this.state.searchValue);
   };
 
   render() {
     const { status, images, fullImg, showModal } = this.state;
+
     if (status === "idle") {
-      return <Searchbar onSubmit={this.handleFormSubmit} />;
+      return (
+        <>
+          <ToastContainer autoClose={3000} />
+          <Searchbar onSubmit={this.handleFormSubmit} />
+        </>
+      );
     }
     if (status === "pending") {
-      return <Loader />;
+      return (
+        <>
+          <ToastContainer autoClose={3000} />
+          <Searchbar onSubmit={this.handleFormSubmit} />
+          <Loader />;
+        </>
+      );
     }
     if (status === "resolved") {
       return (
         <div className='App'>
           <Searchbar onSubmit={this.handleFormSubmit} />
           <ImageGallery images={images} onClick={this.toggleModal} />
-          <ToastContainer autoClose={3000} />
           <Button loadMore={this.loadMore} images={images} />
           {showModal && <Modal src={fullImg} onClose={this.toggleModal} />}
         </div>
