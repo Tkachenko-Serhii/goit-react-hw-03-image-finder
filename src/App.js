@@ -1,7 +1,7 @@
 import { Component } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import fetchImages from "./Api";
+import { fetchImages, popularImages } from "./Api/Api";
 import Searchbar from "./components/Searchbar";
 import ImageGallery from "./components/ImageGallery";
 import Button from "./components/Button";
@@ -19,6 +19,16 @@ export default class App extends Component {
     page: 1,
     searchValue: "",
   };
+
+  async componentDidMount() {
+    const { page } = this.state;
+    const images = await popularImages(page);
+
+    this.setState({
+      images,
+      status: "resolved",
+    });
+  }
 
   async componentDidUpdate(prevProps, prevState) {
     const { searchValue, page } = this.state;
